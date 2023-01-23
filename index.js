@@ -3,8 +3,6 @@
 //
 // Julien Widmer - 101320111
 
-const fs = require("fs");
-
 const canadaFileName = "canada.txt";
 const usaFileName = "usa.txt";
 const countriesFileName = "input_countries.csv";
@@ -13,6 +11,8 @@ const countriesFileName = "input_countries.csv";
 /*
 a) Delete "canada.txt" and "usa.txt" if already exist using fs module
  */
+const fs = require("fs");
+
 function deleteFile(name) {
     try {
         fs.unlinkSync(name);
@@ -30,31 +30,40 @@ deleteFile(usaFileName);
 /*
 b) Filter data of Canada and write data to "canada.txt"
  */
-function createFile(fileName, filter) {
-    try {
-        // --- Read file
-        const stringData = fs.readFileSync(countriesFileName, "utf-8");
+const csv = require("csv-parser");
 
-        // Convert string to array of rows using return line separator
-        let rows = stringData.split("\r\n");
-        // Retrieve headers
-        const headers = rows.shift();
-        // Filter rows
-        rows = rows.filter(row => row.toLowerCase().includes(filter.toLowerCase()));
-
-        // Merge headers and rows array to create result string
-        const filteredData = headers + "\r\n" + rows.join("\r\n");
-
-        // --- Write file
-        fs.writeFileSync(fileName, filteredData);
-        console.log(`"${fileName}" was CREATED.`);
-    } catch (error) {
+function createFile(countryFileName, countryFilter) {
+    // Create reading stream
+    let readStream = fs.createReadStream(countriesFileName).on("error", (error) => {
         console.log(`"${countriesFileName}" was NOT read:\n\t${error.message}`);
-    }
+    });
+
+    const pipe = readStream.pipe(csv());
+
+    // -- Start Reading
+    let countriesData = [];
+    pipe.on("data", (row) => {
+        // Add row to array
+        countriesData.push(row);
+    })
+
+    // -- Reading ended --> write file
+    pipe.on("end", () => {
+        // Filter rows
+        const filteredData = countriesData.filter(row => row.country.toLowerCase() === countryFilter.toLowerCase());
+
+        // Format CSV data as string
+        let resultString = "country,year,population\n"; // headers
+        resultString += filteredData.map(row => `${row.country},${row.year},${row.population}`).join("\n"); // rows
+
+        // Write file
+        fs.writeFileSync(countryFileName, resultString);
+        console.log(`"${countryFileName}" was CREATED.`);
+    });
 }
 
 console.log("--- Task B ---");
-createFile(canadaFileName, "Canada");
+createFile(canadaFileName, "canada");
 
 
 /*
